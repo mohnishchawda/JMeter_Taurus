@@ -1,0 +1,46 @@
+execution:
+  - scenario:
+      script: Blaze_Demo.jmx
+    concurrency: 2
+    iterations: 10
+    hold-for: 15s
+    ramp-up: 2s
+
+reporting:
+  - module: passfail
+    criteria:
+      - avg-rt of 001_Launch_Request>500ms for 10s, stop as failed
+  - module: junit-xml
+    filename: Load_Test_Taurus.xml
+  
+modules:
+  jmeter:
+    path: ${HOME}/apache_jmeter/bin/jmeter
+    fix-log4j: true
+    detect-plugins: true
+    plugins:
+    - jmeter.backendlistener.azure
+    csv-jtl-flags:
+      time: true
+      timestamp: true
+      latency: true
+      connectTime: true
+      success: true
+      label: true
+      code: true
+      message: true
+      threadName: true
+      saveAssertionResultsFailureMessage: true
+      bytes: true
+      threadCounts: true
+      sentBytes: true
+  console:
+    disable: true
+
+services:
+- module: shellexec
+  post-process:
+  - '[ -f "${TAURUS_ARTIFACTS_DIR}/kpi.jtl" ] && ${HOME}/apache_jmeter/bin/jmeter -g "${TAURUS_ARTIFACTS_DIR}/kpi.jtl" -o "${TAURUS_ARTIFACTS_DIR}/HTML_Report" -j "${TAURUS_ARTIFACTS_DIR}/generate_report.log" -q "${TAURUS_ARTIFACTS_DIR}/jmeter-bzt.properties" '
+
+settings:
+  artifacts-dir: output

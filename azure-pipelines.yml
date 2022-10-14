@@ -1,0 +1,59 @@
+trigger:
+- none
+variables:
+  jmeter_version: 5.4.3
+  cmdrunner_version: 2.2
+  jmeter_plugins_manager_version: 1.7
+jobs:
+- job: Job_Load_Test
+  displayName: Agent Job - JMeter Load Test
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+  - task: CmdLine@2
+    displayName: Install JMeter and Required Plugins
+    inputs:
+      script: >
+        echo Installing JMeter ${{ variables.jmeter_version }} ...
+
+        wget https://dlcdn.apache.org//jmeter/binaries/apache-jmeter-${{ variables.jmeter_version }}.zip -O jmeter.zip
+
+        unzip jmeter.zip -d $HOME/
+
+        ls -lrt $HOME/
+
+        mv $HOME/apache-jmeter-${{ variables.jmeter_version }} $HOME/apache_jmeter
+
+        ls -lrt $HOME/
+
+        rm jmeter.zip
+
+        echo Downloading cmdrunner ${{ variables.cmdrunner_version }} ...
+
+        wget -O $HOME/apache_jmeter/lib/cmdrunner-${{ variables.cmdrunner_version }}.jar https://search.maven.org/remotecontent?filepath=kg/apc/cmdrunner/${{ variables.cmdrunner_version }}/cmdrunner-${{ variables.cmdrunner_version }}.jar
+
+        echo Downloading jmeter-plugins-manager ${{ variables.jmeter_plugins_manager_version }} ...
+
+        wget -O $HOME/apache_jmeter/lib/ext/jmeter-plugins-manager-${{ variables.jmeter_plugins_manager_version }}.jar https://search.maven.org/remotecontent?filepath=kg/apc/jmeter-plugins-manager/${{ variables.jmeter_plugins_manager_version }}/jmeter-plugins-manager-${{ variables.jmeter_plugins_manager_version }}.jar
+
+        echo Generating PluginsManagerCMD ...
+
+        java -cp $HOME/apache_jmeter/lib/ext/jmeter-plugins-manager-${{ variables.jmeter_plugins_manager_version }}.jar org.jmeterplugins.repository.PluginManagerCMDInstaller
+  - task: UsePythonVersion@0
+    displayName: Use Python 3.x
+  - task: CmdLine@2
+    displayName: Install Taurus
+    inputs:
+      script: python3 -m pip install --upgrade bzt
+  - task: CmdLine@2
+    displayName: Run Taurus
+    inputs:
+      script: "bzt taurus-config.yml -o modules.jmeter.path=${HOME}/apache_jmeter/bin/jmeter -o modules.jmeter.properties=\"{'jmeter.reportgenerator.overall_granularity':1000}\" "
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Pipeline Artifact
+    inputs:
+      path: $(Pipeline.Workspace)/s/
+  - task: PublishTestResults@2
+    displayName: Publish Test Results
+    inputs:
+      testResultsFiles: '**/Load_Test_Taurus.xml'
